@@ -50,6 +50,7 @@ public class SimpleSample {
     double y;
     double x;
     double distance;
+    double pixelDistanceBetweenTape;
     boolean gearTargetTracked = false;
     double great;
     Mat input = new Mat();
@@ -77,14 +78,19 @@ public class SimpleSample {
         wantedGearVisionMode = GearVisionMode.VisionTargeting;
         connection = new RoboRIOConnection();
         connection.start();
-  //      im = new Imshow("Video Preview");
-  //      im.Window.setResizable(true);
+        try{
+            im = new Imshow("Video Preview");
+            im.Window.setResizable(true);
+        }catch(Exception e){
+        }
         gearCamera = new VideoCapture(0);
         while (gearCamera.isOpened() == false) {
 
-         }
-         gearCamera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, 320);
+        }
+        gearCamera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, 320);
         gearCamera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, 240);
+        //gearCamera.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, 640);
+        //gearCamera.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, 480);
         while (reading.empty()) {
             gearCamera.retrieve(reading);
         }
@@ -165,13 +171,14 @@ public class SimpleSample {
                 }
                 GaussianBlur(input, blurred, new Size(5, 5), 0, 0);
                 cvtColor(blurred, HSVImage, COLOR_BGR2HSV);//convert to HSV
-                Core.inRange(HSVImage, new Scalar(55, 180, 75), new Scalar(110, 255, 185), thresholded);
+                Core.inRange(HSVImage, new Scalar(49, 0, 45), new Scalar(90, 255, 255), thresholded);
+                //im.showImage(thresholded);
                 Imgproc.findContours(thresholded, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
                 for (int i = 0; i < contours.size(); i++) {
                     //Imgproc.drawContours(input, contours, i, new Scalar(4, 4, 255));
                     rects.add(Imgproc.boundingRect(contours.get(i)));
-                    if (rects.get(i).height > 25 && rects.get(i).width > 7) {
+                    if (rects.get(i).height > 15 && rects.get(i).width > 4) {
                         contour2 = new MatOfPoint2f();
                         approxContours = new MatOfPoint2f();
                         contour2.fromArray(contours.get(i).toArray());
@@ -199,13 +206,25 @@ public class SimpleSample {
                     }
                 }
                 if(closestRect < 1080) {
-                    azimuth = (Math.abs((((myFavoriteRects.get(0).br().x - myFavoriteRects.get(0).width / 2) + (myFavoriteRects.get(1).br().x + myFavoriteRects.get(1).width / 2)) / 2) / gearCamera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) * 60) - 30);
-                    System.out.println(azimuth);
+                    if(goodRects.get(1).tl().x > goodRects.get(0).tl().x){
+                        azimuth = (Math.abs((myFavoriteRects.get(0).tl().x) / gearCamera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) * 60) - 30);
+                        pixelDistanceBetweenTape = (myFavoriteRects.get(0).tl().x - myFavoriteRects.get(1).br().x);
+                    } else {
+                        azimuth = (Math.abs((myFavoriteRects.get(1).tl().x) / gearCamera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) * 60) - 30);
+                        pixelDistanceBetweenTape = (myFavoriteRects.get(1).tl().x + myFavoriteRects.get(0).br().x);
+                    }
+                    //System.out.println(pixelDistanceBetweenTape/gearCamera.get(Highgui.CV_CAP_PROP_FRAME_WIDTH) * 60 + "degrees");
+                    System.out.println(azimuth + " azimuth");
+                    System.out.println(distance + " distance");
+                    System.out.println("pixel distance" + ((myFavoriteRects.get(1).tl().y - myFavoriteRects.get(1).height) + (myFavoriteRects.get(0).tl().y - myFavoriteRects.get(0).height)
+                            + (myFavoriteRects.get(0).br().y + myFavoriteRects.get(0).height) + (myFavoriteRects.get(1).br().y + myFavoriteRects.get(1).height))/4);
+                    distance = 57081.8772 * Math.pow(((myFavoriteRects.get(1).tl().y - myFavoriteRects.get(1).height) + (myFavoriteRects.get(0).tl().y - myFavoriteRects.get(0).height)
+                            + (myFavoriteRects.get(0).br().y + myFavoriteRects.get(0).height) + (myFavoriteRects.get(1).br().y + myFavoriteRects.get(1).height))/4, -1.590444177);
                     gearTargetTracked = true;
                 } else {
                     gearTargetTracked = false;
                 }
-      //          im.showImage(input);
+                //im.showImage(input);
             }catch(Exception e) {
                 e.printStackTrace();
             }
@@ -292,7 +311,9 @@ public class SimpleSample {
         return createTaggedMessage("KnockKnock","Knock Knock Request");
     }
     public String createTargetingMessage() {
-        return createTaggedMessage("TargetInfo", ((Double)azimuth).toString()) + createTaggedMessage("TargetTracked", ((Boolean)gearTargetTracked).toString());
+        return 	createTaggedMessage("TargetInfo", createTaggedMessage("TargetAzimuth", ((Double)azimuth).toString()) +
+                createTaggedMessage("TargetDistance", ((Double)distance).toString()) +
+                createTaggedMessage("TargetTracked", ((Boolean)gearTargetTracked).toString()));
     }
     public String createTaggedMessage(String tag, String message) {
         return "<" + tag + ">" + message + "</" + tag + ">";
@@ -400,12 +421,12 @@ public class SimpleSample {
     }
     protected class RunVisionComms implements Runnable{
         public RunVisionComms(){
-                shouldRun = true;
-            }
+            shouldRun = true;
+        }
         public void run() {
             try{
                 try{
-                    driverStationVisionSocket = new Socket("10.3.60.109", 3601);
+                    driverStationVisionSocket = new Socket("10.3.60.2", 3601);
                     driverStationVisionInput = new BufferedReader(new InputStreamReader(driverStationVisionSocket.getInputStream()));
                     //driverStationVisionOutput = new DataOutputStream(driverStationVisionSocket.getOutputStream());
                     //objectOutput = new ObjectOutputStream(driverStationVisionSocket.getOutputStream());
@@ -427,7 +448,7 @@ public class SimpleSample {
                     System.out.println(e.toString());
                 }
                 try{
-                //driverStationVisionOutput.writeBytes("dssadasdas" + '\n');
+                    //driverStationVisionOutput.writeBytes("dssadasdas" + '\n');
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -466,11 +487,11 @@ public class SimpleSample {
     protected class RoboRIOConnection implements Runnable{
 
         public RoboRIOConnection(){
-                shouldRun = true;
+            shouldRun = true;
         }
         public void run() {
             try{
-                dataCommSocket = new Socket("10.3.60.109", 3600);
+                dataCommSocket = new Socket("10.3.60.2", 3600);
                 dataCommInput = new BufferedReader(new InputStreamReader(dataCommSocket.getInputStream()));
                 dataCommOutput = new DataOutputStream(dataCommSocket.getOutputStream());
                 send(createKnockKnockMessage());
