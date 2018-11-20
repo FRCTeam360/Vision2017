@@ -22,7 +22,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.Arrays;
 
-public class SimpleSample {
+public class VisionCode {
 
     static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); }
     double targetHeight = 68.25;
@@ -71,7 +71,7 @@ public class SimpleSample {
     Socket driverStationVisionSocket;
     BufferedReader driverStationVisionInput;
     DataOutputStream driverStationVisionOutput;
-    public SimpleSample() {
+    public VisionCode() {
         wantedGearVisionMode = GearVisionMode.None;
         wantedBoilerVisionMode = BoilerVisionMode.None;
         wantedBoilerVisionMode = BoilerVisionMode.None;
